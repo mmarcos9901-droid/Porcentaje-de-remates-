@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Calculadora de Remates</title>
     
     <!-- Tailwind CSS -->
@@ -22,7 +22,11 @@
             -moz-appearance: textfield;
         }
         
-        /* Animaciones suaves */
+        /* Prevenir zoom en inputs en iOS */
+        input {
+            font-size: 16px; 
+        }
+
         .transition-all {
             transition-property: all;
             transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
@@ -68,7 +72,7 @@
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
                 <div class="space-y-5">
                     
-                    <!-- Campo Descripción: Optimizado para no bloquear -->
+                    <!-- Campo Descripción -->
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
                             Descripción / Item (Opcional)
@@ -272,7 +276,7 @@
     <script>
         // Estado inicial
         let state = {
-            mode: 'bid', // 'bid' o 'budget'
+            mode: 'bid',
             baseValue: 1000000,
             totalBudget: 1500000,
             increment: 100000,
@@ -281,24 +285,10 @@
         };
 
         let tableTimeout = null;
-
-        // --- Funciones de Formato Eficientes ---
-
-        // Regex pre-compilada para mayor velocidad
+        // Pre-compilar regex para máximo rendimiento
         const numberFormatRegex = /\B(?=(\d{3})+(?!\d))/g;
-
-        function formatNumber(num) {
-            if (num === '' || num === null || isNaN(num)) return '';
-            // Usamos una conversión más directa
-            return Math.round(num).toString().replace(numberFormatRegex, ".");
-        }
-
-        function parseFormatted(str) {
-            if (!str) return '';
-            // Versión simplificada para limpieza
-            return str.replace(/[^\d]/g, '');
-        }
-
+        const cleanRegex = /[^\d]/g;
+        
         const currencyFormatter = new Intl.NumberFormat('es-CL', {
             style: 'currency',
             currency: 'CLP',
@@ -306,48 +296,55 @@
             maximumFractionDigits: 0,
         });
 
+        // --- Funciones Core ---
+
+        function formatNumber(num) {
+            if (num === '' || num === null || num === undefined) return '';
+            // Aseguramos que sea entero para evitar problemas con puntos flotantes
+            return Math.round(Number(num)).toString().replace(numberFormatRegex, ".");
+        }
+
+        function parseFormatted(str) {
+            if (!str) return '';
+            return str.toString().replace(cleanRegex, '');
+        }
+
         function formatCurrency(num) {
             if (num === '' || isNaN(num)) return '$0';
             return currencyFormatter.format(num);
         }
 
-        // --- Lógica del Core ---
-
-        function init() {
-            lucide.createIcons();
-            // Inicialización completa
-            renderCard();
-            updateInputs();
-            renderTable(); // Renderizado inicial de la tabla
-        }
-
-        function setMode(newMode) {
-            state.mode = newMode;
-            if (state.mode === 'bid') {
-                const tax = state.baseValue * (state.taxRate / 100);
-                state.totalBudget = state.baseValue + tax;
-            } else {
-                const newBase = state.totalBudget / (1 + (state.taxRate / 100));
-                state.baseValue = newBase;
+        function safeInit() {
+            try {
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+                
+                // Renderizado inicial seguro
+                renderCard();
+                updateInputs();
+                renderTable(); 
+            } catch (e) {
+                console.error("Error iniciando app:", e);
+                // Fallback para inputs si algo falla
+                updateInputs();
             }
-            
-            updateModeUI();
-            updateInputs();
-            renderCard();
-            requestTableUpdate(); // Tabla diferida
         }
+
+        // --- Manejadores de Input ---
 
         function handleDescriptionInput(val) {
             state.description = val;
-            // Solo actualizamos el DOM de la descripción, NO la tabla entera
             const descContainer = document.getElementById('card-description-container');
             const descDisplay = document.getElementById('display-description');
             
-            if (state.description && state.description.trim() !== '') {
-                descContainer.classList.remove('hidden');
-                descDisplay.textContent = state.description;
-            } else {
-                descContainer.classList.add('hidden');
+            if (descContainer && descDisplay) {
+                if (state.description && state.description.trim() !== '') {
+                    descContainer.classList.remove('hidden');
+                    descDisplay.textContent = state.description;
+                } else {
+                    descContainer.classList.add('hidden');
+                }
             }
         }
 
@@ -355,7 +352,7 @@
             const cleanVal = parseFormatted(val);
             const inputEl = document.getElementById('main-input');
             
-            // Actualización de estado
+            // Actualizar estado
             if (cleanVal === '') {
                 if (state.mode === 'bid') state.baseValue = '';
                 else state.totalBudget = '';
@@ -370,42 +367,42 @@
                 }
             }
 
-            // 1. Renderizado Crítico (Inmediato)
+            // 1. Render UI Crítica
             renderCard();
             
-            // 2. Mantenimiento del cursor y formato del input
-            const oldSelectionStart = inputEl.selectionStart;
-            const oldLength = inputEl.value.length;
-            const formatted = formatNumber(cleanVal);
-            inputEl.value = formatted;
-            const newLength = formatted.length;
-            
-            if (document.activeElement === inputEl) {
-                const newPos = oldSelectionStart + (newLength - oldLength);
-                inputEl.setSelectionRange(newPos, newPos);
+            // 2. Manejo de Cursor (Mejorado para no saltar)
+            if (inputEl) {
+                const oldStart = inputEl.selectionStart;
+                const oldEnd = inputEl.selectionEnd;
+                const oldVal = inputEl.value;
+                
+                const formatted = formatNumber(cleanVal);
+                inputEl.value = formatted;
+                
+                // Intentar preservar cursor solo si estamos editando en medio
+                if (document.activeElement === inputEl) {
+                     // Lógica simplificada: si agrego un caracter y la longitud crece, mover cursor
+                     // Si borro, mantener posición relativa.
+                     // Para remates, usualmente se edita al final, así que esto es seguro.
+                     const newLength = formatted.length;
+                     const oldLength = oldVal.length;
+                     let newPos = oldStart;
+                     
+                     if (newLength !== oldLength) {
+                        newPos = oldStart + (newLength - oldLength);
+                     }
+                     // Limites
+                     if (newPos < 0) newPos = 0;
+                     if (newPos > newLength) newPos = newLength;
+                     
+                     inputEl.setSelectionRange(newPos, newPos);
+                }
             }
 
-            // 3. Renderizado No Crítico (Diferido/Debounced)
+            // 3. Renderizado Diferido
             requestTableUpdate();
         }
 
         function handleIncrementInput(val) {
             const cleanVal = parseFormatted(val);
-            const inputEl = document.getElementById('increment-input');
-
-            if (cleanVal === '') {
-                state.increment = '';
-            } else {
-                state.increment = parseFloat(cleanVal);
-            }
-            
-            // Actualizar visual input
-            inputEl.value = formatNumber(cleanVal);
-            
-            // Actualizar resto UI
-            document.getElementById('increment-display-text').textContent = formatNumber(state.increment);
-            requestTableUpdate(); // Diferido
-        }
-
-        function setQuickIncrement(amount) {
-            state.increment = amou
+         
