@@ -1,462 +1,543 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Calculator, TrendingUp, DollarSign, Percent, Info, Wallet, ArrowRightLeft, Copy, Check, PlusCircle, AlertCircle, RotateCcw } from 'lucide-react';
-
-export default function App() {
-  const [mode, setMode] = useState('bid'); // 'bid' (desde puja) o 'budget' (desde presupuesto)
-  
-  // Inicializamos con números
-  const [baseValue, setBaseValue] = useState(1000000); 
-  const [totalBudget, setTotalBudget] = useState(1500000); // Presupuesto por defecto para demo
-  
-  const [increment, setIncrement] = useState(100000);
-  const [taxRate, setTaxRate] = useState(19);
-  const [copied, setCopied] = useState(false);
-
-  // Efecto para sincronizar valores al cambiar de modo
-  useEffect(() => {
-    const safeBase = baseValue === '' ? 0 : parseFloat(baseValue);
-    const safeBudget = totalBudget === '' ? 0 : parseFloat(totalBudget);
-
-    if (mode === 'bid') {
-      const tax = safeBase * (taxRate / 100);
-      setTotalBudget(baseValue === '' ? '' : safeBase + tax);
-    } else {
-      const newBase = safeBudget / (1 + (taxRate / 100));
-      setBaseValue(totalBudget === '' ? '' : newBase);
-    }
-  }, [mode, taxRate]); 
-
-  // --- FORMATO ---
-  const formatInputDisplay = (val) => {
-    if (val === '' || val === null || val === undefined) return '';
-    return Math.round(val).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  };
-
-  const parseInputValue = (valStr) => {
-    return valStr.replace(/\./g, '').replace(/\s/g, '');
-  };
-
-  const formatCurrency = (value) => {
-    if (value === '' || isNaN(value)) return '$0';
-    return new Intl.NumberFormat('es-CL', {
-      style: 'currency',
-      currency: 'CLP',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  // --- CÁLCULOS ---
-  const calculatedValues = useMemo(() => {
-    let hammer, tax, total;
-    const safeBase = baseValue === '' ? 0 : parseFloat(baseValue);
-    const safeBudget = totalBudget === '' ? 0 : parseFloat(totalBudget);
-
-    if (mode === 'bid') {
-      hammer = safeBase;
-      tax = hammer * (taxRate / 100);
-      total = hammer + tax;
-    } else {
-      total = safeBudget;
-      hammer = total / (1 + (taxRate / 100));
-      tax = total - hammer;
-    }
-
-    return { hammer, tax, total };
-  }, [mode, baseValue, totalBudget, taxRate]);
-
-  // Generar lista de proyecciones
-  const projections = useMemo(() => {
-    const list = [];
-    let currentHammer = calculatedValues.hammer;
-    const safeIncrement = increment === '' ? 0 : parseFloat(increment);
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Remates</title>
     
-    // Si estamos en modo Bid, usamos el totalBudget calculado como límite visual
-    // Si estamos en modo Budget, ese es el límite real
-    const limit = mode === 'budget' ? (totalBudget === '' ? 0 : parseFloat(totalBudget)) : (parseFloat(baseValue) + (parseFloat(baseValue) * (taxRate/100)));
-
-    for (let i = 1; i <= 20; i++) {
-      currentHammer += safeIncrement;
-      const tax = currentHammer * (taxRate / 100);
-      const total = currentHammer + tax;
-      
-      // Check si esta proyección se pasa del presupuesto original (si se ha definido uno manualmente en modo budget)
-      // Ojo: En modo 'bid' el presupuesto se actualiza solo, así que esta lógica es más visual para 'budget' mode
-      // Para hacerlo útil en 'bid' mode, podríamos guardar un "Presupuesto Límite" separado, pero por simplicidad
-      // usaremos el valor actual como referencia base.
-      
-      list.push({
-        step: i,
-        base: currentHammer,
-        tax: tax,
-        total: total
-      });
-    }
-    return list;
-  }, [calculatedValues.hammer, increment, taxRate, totalBudget, mode, baseValue]);
-
-  // --- MANEJADORES ---
-  const handleBidChange = (valStr) => {
-    const cleanVal = parseInputValue(valStr);
-    if (cleanVal !== '' && isNaN(cleanVal)) return;
-
-    if (cleanVal === '') {
-      setBaseValue('');
-      if (mode === 'bid') setTotalBudget('');
-      return;
-    }
-
-    const val = parseFloat(cleanVal);
-    setBaseValue(val);
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    if (mode === 'bid') {
-      const tax = val * (taxRate / 100);
-      setTotalBudget(val + tax);
-    }
-  };
-
-  const handleBudgetChange = (valStr) => {
-    const cleanVal = parseInputValue(valStr);
-    if (cleanVal !== '' && isNaN(cleanVal)) return;
-
-    if (cleanVal === '') {
-      setTotalBudget('');
-      if (mode === 'budget') setBaseValue('');
-      return;
-    }
-
-    const val = parseFloat(cleanVal);
-    setTotalBudget(val);
+    <!-- Iconos Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     
-    if (mode === 'budget') {
-      setBaseValue(val / (1 + (taxRate / 100)));
-    }
-  };
-
-  const handleIncrementChange = (valStr) => {
-    const cleanVal = parseInputValue(valStr);
-    if (cleanVal === '') { setIncrement(''); return; }
-    if (!isNaN(cleanVal)) setIncrement(parseFloat(cleanVal));
-  };
-
-  // Función para subir una postura rápidamente
-  const quickAddIncrement = () => {
-    const currentBase = baseValue === '' ? 0 : parseFloat(baseValue);
-    const inc = increment === '' ? 0 : parseFloat(increment);
-    const newValue = currentBase + inc;
-    
-    setBaseValue(newValue);
-    // Forzamos actualización de presupuesto si estamos en modo bid
-    if (mode === 'bid') {
-      setTotalBudget(newValue * (1 + (taxRate/100)));
-    } else {
-      // Si estamos en modo budget, al subir la puja, el presupuesto necesario sube
-      // pero mantenemos el 'mode' en budget para mostrar que nos pasamos? 
-      // Mejor cambiamos a bid para reflejar la nueva realidad
-      setMode('bid');
-      setTotalBudget(newValue * (1 + (taxRate/100)));
-    }
-  };
-
-  const setQuickIncrement = (val) => setIncrement(val);
-
-  const resetAll = () => {
-    setBaseValue(0);
-    setTotalBudget(0);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleFocus = (e) => e.target.select();
-
-  const selectRow = (rowBase) => {
-    setBaseValue(rowBase);
-    setTotalBudget(rowBase * (1 + (taxRate / 100)));
-    setMode('bid'); 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const copyToClipboard = () => {
-    const text = `
-Resumen Remate:
-----------------
-Puja Martillo: ${formatCurrency(calculatedValues.hammer)}
-Comisión/Imp (${taxRate}%): ${formatCurrency(calculatedValues.tax)}
-TOTAL A PAGAR: ${formatCurrency(calculatedValues.total)}
-    `.trim();
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50 p-3 md:p-8 font-sans text-slate-800">
-      <div className="max-w-4xl mx-auto space-y-5">
+    <style>
+        /* Estilos base para inputs numéricos */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
         
-        {/* Header Compacto */}
-        <header className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-600 rounded-lg shadow-md shadow-blue-200">
-              <Calculator className="w-6 h-6 text-white" />
+        /* Animaciones suaves */
+        .transition-all {
+            transition-property: all;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 300ms;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-3 md:p-8 font-sans text-slate-800">
+
+    <div class="max-w-4xl mx-auto space-y-5">
+        
+        <!-- Header -->
+        <header class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-blue-600 rounded-lg shadow-md shadow-blue-200">
+                    <i data-lucide="calculator" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold text-slate-900 leading-tight">Calculadora Remates</h1>
+                </div>
             </div>
-            <div>
-              <h1 className="text-xl md:text-2xl font-bold text-slate-900 leading-tight">Calculadora Remates</h1>
-            </div>
-          </div>
-          <button 
-            onClick={resetAll}
-            className="text-slate-400 hover:text-red-500 hover:bg-red-50 px-3 py-2 rounded-lg transition-all text-sm flex items-center gap-1"
-          >
-            <RotateCcw className="w-4 h-4" /> Limpiar
-          </button>
+            <button onclick="resetAll()" class="text-slate-400 hover:text-red-500 hover:bg-red-50 px-3 py-2 rounded-lg transition-all text-sm flex items-center gap-1">
+                <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Limpiar
+            </button>
         </header>
 
-        {/* Tabs de Modo */}
-        <div className="bg-white p-1 rounded-xl border border-slate-200 flex w-full shadow-sm">
-          <button
-            onClick={() => setMode('bid')}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
-              mode === 'bid' 
-                ? 'bg-blue-600 text-white shadow-md' 
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <DollarSign className="w-4 h-4" />
-            Modo Puja
-          </button>
-          <button
-            onClick={() => setMode('budget')}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
-              mode === 'budget' 
-                ? 'bg-emerald-600 text-white shadow-md' 
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <Wallet className="w-4 h-4" />
-            Modo Presupuesto
-          </button>
+        <!-- Tabs de Modo -->
+        <div class="bg-white p-1 rounded-xl border border-slate-200 flex w-full shadow-sm">
+            <button id="btn-mode-bid" onclick="setMode('bid')" class="flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 bg-blue-600 text-white shadow-md">
+                <i data-lucide="dollar-sign" class="w-4 h-4"></i>
+                Modo Puja
+            </button>
+            <button id="btn-mode-budget" onclick="setMode('budget')" class="flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 text-slate-600 hover:bg-slate-50">
+                <i data-lucide="wallet" class="w-4 h-4"></i>
+                Modo Presupuesto
+            </button>
         </div>
 
-        {/* Panel Principal */}
-        <div className="grid md:grid-cols-2 gap-4">
-          
-          {/* Inputs */}
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
-            <div className="space-y-5">
-              
-              {mode === 'bid' ? (
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                    Valor Puja (Martillo)
-                  </label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={formatInputDisplay(baseValue)}
-                        onChange={(e) => handleBidChange(e.target.value)}
-                        onFocus={handleFocus}
-                        placeholder="0"
-                        className="w-full pl-8 pr-4 py-3 bg-slate-50 border-2 border-blue-100 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none font-bold text-2xl text-slate-800 placeholder-slate-300"
-                      />
+        <!-- Panel Principal -->
+        <div class="grid md:grid-cols-2 gap-4">
+            
+            <!-- Inputs -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                <div class="space-y-5">
+                    
+                    <!-- Input Dinámico (Cambia según modo) -->
+                    <div>
+                        <label id="main-input-label" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Valor Puja (Martillo)
+                        </label>
+                        <div class="flex gap-2">
+                            <div class="relative flex-1">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                                <input
+                                    type="text"
+                                    inputmode="numeric"
+                                    id="main-input"
+                                    oninput="handleMainInput(this.value)"
+                                    onfocus="this.select()"
+                                    placeholder="0"
+                                    class="w-full pl-8 pr-4 py-3 bg-slate-50 border-2 border-blue-100 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none font-bold text-2xl text-slate-800 placeholder-slate-300"
+                                />
+                            </div>
+                            <!-- Botón Sumar (Solo visible en modo Puja) -->
+                            <button 
+                                id="btn-quick-add"
+                                onclick="quickAddIncrement()"
+                                class="bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold rounded-xl px-4 flex items-center justify-center transition-colors active:scale-95"
+                                title="Sumar incremento actual"
+                            >
+                                <i data-lucide="plus-circle" class="w-6 h-6"></i>
+                            </button>
+                        </div>
+                        <div id="quick-add-text" class="text-right mt-1">
+                            <span class="text-xs text-blue-500 font-medium cursor-pointer hover:underline" onclick="quickAddIncrement()">
+                                + Sumar <span id="increment-display-text">100.000</span>
+                            </span>
+                        </div>
                     </div>
-                    <button 
-                      onClick={quickAddIncrement}
-                      className="bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold rounded-xl px-4 flex items-center justify-center transition-colors active:scale-95"
-                      title="Sumar incremento actual"
-                    >
-                      <PlusCircle className="w-6 h-6" />
-                    </button>
-                  </div>
-                  <div className="text-right mt-1">
-                    <span className="text-xs text-blue-500 font-medium cursor-pointer hover:underline" onClick={quickAddIncrement}>
-                      + Sumar {formatInputDisplay(increment)}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                    Presupuesto Total (Tope)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={formatInputDisplay(totalBudget)}
-                      onChange={(e) => handleBudgetChange(e.target.value)}
-                      onFocus={handleFocus}
-                      placeholder="0"
-                      className="w-full pl-8 pr-4 py-3 bg-slate-50 border-2 border-emerald-100 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all outline-none font-bold text-2xl text-slate-800 placeholder-slate-300"
-                    />
-                  </div>
-                </div>
-              )}
 
-              <div className="grid grid-cols-5 gap-3">
-                <div className="col-span-3">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                    Incremento
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">+</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={formatInputDisplay(increment)}
-                      onChange={(e) => handleIncrementChange(e.target.value)}
-                      onFocus={handleFocus}
-                      className="w-full pl-7 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium"
-                    />
-                  </div>
-                  {/* Presets de incremento */}
-                  <div className="flex gap-1 mt-2 overflow-x-auto pb-1">
-                    {[10000, 50000, 100000].map(val => (
-                       <button 
-                         key={val}
-                         onClick={() => setQuickIncrement(val)}
-                         className="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-xs text-slate-600 whitespace-nowrap"
-                       >
-                         {val/1000}k
-                       </button>
-                    ))}
-                  </div>
-                </div>
+                    <!-- Inputs Secundarios -->
+                    <div class="grid grid-cols-5 gap-3">
+                        <div class="col-span-3">
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                Incremento
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">+</span>
+                                <input
+                                    type="text"
+                                    inputmode="numeric"
+                                    id="increment-input"
+                                    oninput="handleIncrementInput(this.value)"
+                                    onfocus="this.select()"
+                                    class="w-full pl-7 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                                />
+                            </div>
+                            <!-- Presets -->
+                            <div class="flex gap-1 mt-2 overflow-x-auto pb-1">
+                                <button onclick="setQuickIncrement(10000)" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-xs text-slate-600 whitespace-nowrap">10k</button>
+                                <button onclick="setQuickIncrement(50000)" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-xs text-slate-600 whitespace-nowrap">50k</button>
+                                <button onclick="setQuickIncrement(100000)" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-xs text-slate-600 whitespace-nowrap">100k</button>
+                            </div>
+                        </div>
 
-                <div className="col-span-2">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                    Comisión %
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={taxRate}
-                      onChange={(e) => setTaxRate(e.target.value === '' ? '' : Number(e.target.value))}
-                      onFocus={handleFocus}
-                      className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-center"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-                      <Percent className="w-3 h-3" />
-                    </span>
-                  </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                Comisión %
+                            </label>
+                            <div class="relative">
+                                <input
+                                    type="number"
+                                    id="tax-input"
+                                    value="19"
+                                    oninput="handleTaxInput(this.value)"
+                                    onfocus="this.select()"
+                                    class="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-center"
+                                />
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                                    <i data-lucide="percent" class="w-3 h-3"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-              </div>
             </div>
-          </div>
 
-          {/* Tarjeta de Resultado */}
-          <div className={`p-6 rounded-2xl shadow-lg text-white flex flex-col justify-center transition-colors duration-300 ${mode === 'bid' ? 'bg-blue-600' : 'bg-emerald-600'}`}>
-            <div className="relative">
-              <button 
-                onClick={copyToClipboard}
-                className="absolute -top-2 -right-2 p-2 hover:bg-white/10 rounded-lg transition-colors group"
-                title="Copiar resumen"
-              >
-                {copied ? <Check className="w-5 h-5 text-green-300" /> : <Copy className="w-5 h-5 text-white/70 group-hover:text-white" />}
-              </button>
+            <!-- Tarjeta de Resultado -->
+            <div id="result-card" class="p-6 rounded-2xl shadow-lg text-white flex flex-col justify-center transition-colors duration-300 bg-blue-600 relative">
+                <button 
+                    onclick="copyToClipboard()"
+                    class="absolute top-2 right-2 p-2 hover:bg-white/10 rounded-lg transition-colors group"
+                    title="Copiar resumen"
+                >
+                    <i id="copy-icon" data-lucide="copy" class="w-5 h-5 text-white/70 group-hover:text-white"></i>
+                </button>
 
-              <div className="space-y-4">
-                <div className="flex justify-between items-end border-b border-white/20 pb-2">
-                  <span className="text-white/80 text-sm">Valor Martillo</span>
-                  <span className="font-bold text-xl">
-                    {formatCurrency(calculatedValues.hammer)}
-                  </span>
-                </div>
-                
-                <div className="flex justify-between items-end border-b border-white/20 pb-2">
-                  <span className="text-white/80 text-sm">Comisión ({taxRate}%)</span>
-                  <span className="font-medium text-lg text-white/90">
-                    + {formatCurrency(calculatedValues.tax)}
-                  </span>
-                </div>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-end border-b border-white/20 pb-2">
+                        <span class="text-white/80 text-sm">Valor Martillo</span>
+                        <span id="display-hammer" class="font-bold text-xl">$0</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-end border-b border-white/20 pb-2">
+                        <span class="text-white/80 text-sm">Comisión (<span id="display-tax-rate">19</span>%)</span>
+                        <span id="display-tax" class="font-medium text-lg text-white/90">+ $0</span>
+                    </div>
 
-                <div className="pt-2">
-                  <span className="block text-xs uppercase tracking-wider text-white/60 mb-1">
-                    Total Final a Pagar
-                  </span>
-                  <span className="block text-4xl md:text-5xl font-bold tracking-tight break-words leading-none">
-                    {formatCurrency(calculatedValues.total)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Tabla de Proyecciones */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-4 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-            <div>
-              <h2 className="text-sm font-bold text-slate-700 uppercase flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-blue-500" />
-                Siguientes Pujas
-              </h2>
-            </div>
-            {mode === 'budget' && totalBudget > 0 && (
-              <div className="flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-100">
-                <AlertCircle className="w-3 h-3" />
-                Límite visible: {formatCurrency(totalBudget)}
-              </div>
-            )}
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-100 text-slate-500 text-xs uppercase tracking-wider">
-                  <th className="p-3 font-semibold border-b border-slate-200">#</th>
-                  <th className="p-3 font-semibold border-b border-slate-200">Puja (Martillo)</th>
-                  <th className="p-3 font-semibold border-b border-slate-200 hidden sm:table-cell">Comisión</th>
-                  <th className="p-3 font-semibold border-b border-slate-200">Total Final</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
-                {projections.map((row) => {
-                  // Determinar si esta fila excede el presupuesto (solo relevante si hay presupuesto y estamos en ese modo o lo usamos de ref)
-                  const isOverBudget = mode === 'budget' && totalBudget > 0 && row.total > parseFloat(totalBudget);
-                  
-                  return (
-                    <tr 
-                      key={row.step} 
-                      onClick={() => selectRow(row.base)}
-                      className={`transition-colors cursor-pointer group ${
-                        isOverBudget 
-                          ? 'bg-red-50 hover:bg-red-100' 
-                          : 'hover:bg-blue-50'
-                      }`}
-                    >
-                      <td className={`p-3 font-medium w-12 ${isOverBudget ? 'text-red-400' : 'text-slate-400 group-hover:text-blue-500'}`}>
-                        +{row.step}
-                      </td>
-                      <td className={`p-3 font-bold ${isOverBudget ? 'text-red-700' : 'text-slate-700 group-hover:text-blue-700'}`}>
-                        {formatCurrency(row.base)}
-                      </td>
-                      <td className={`p-3 hidden sm:table-cell ${isOverBudget ? 'text-red-400' : 'text-slate-500'}`}>
-                        {formatCurrency(row.tax)}
-                      </td>
-                      <td className="p-3">
-                        <span className={`font-bold px-2 py-1 rounded ${
-                          isOverBudget 
-                            ? 'bg-white text-red-600 border border-red-200' 
-                            : 'bg-blue-50 text-blue-700 border border-blue-100 group-hover:bg-blue-100'
-                        }`}>
-                          {formatCurrency(row.total)}
+                    <div class="pt-2">
+                        <span class="block text-xs uppercase tracking-wider text-white/60 mb-1">
+                            Total Final a Pagar
                         </span>
-                        {isOverBudget && <span className="text-[10px] text-red-500 ml-2 font-bold uppercase">Fuera de rango</span>}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        <span id="display-total" class="block text-4xl md:text-5xl font-bold tracking-tight break-words leading-none">
+                            $0
+                        </span>
+                    </div>
+                </div>
+            </div>
         </div>
 
-      </div>
-    </div>
-  );
-}
+        <!-- Tabla de Proyecciones -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-4 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div>
+                    <h2 class="text-sm font-bold text-slate-700 uppercase flex items-center gap-2">
+                        <i data-lucide="trending-up" class="w-4 h-4 text-blue-500"></i>
+                        Siguientes Pujas
+                    </h2>
+                </div>
+                <div id="budget-warning" class="hidden items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-100">
+                    <i data-lucide="alert-circle" class="w-3 h-3"></i>
+                    Límite visible: <span id="budget-limit-display">$0</span>
+                </div>
+            </div>
 
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-500 text-xs uppercase tracking-wider">
+                            <th class="p-3 font-semibold border-b border-slate-200">#</th>
+                            <th class="p-3 font-semibold border-b border-slate-200">Puja (Martillo)</th>
+                            <th class="p-3 font-semibold border-b border-slate-200 hidden sm:table-cell">Comisión</th>
+                            <th class="p-3 font-semibold border-b border-slate-200">Total Final</th>
+                        </tr>
+                    </thead>
+                    <tbody id="projection-table-body" class="divide-y divide-slate-100 text-sm">
+                        <!-- Las filas se generan con JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lógica de la Aplicación -->
+    <script>
+        // Estado inicial
+        let state = {
+            mode: 'bid', // 'bid' o 'budget'
+            baseValue: 1000000,
+            totalBudget: 1500000,
+            increment: 100000,
+            taxRate: 19
+        };
+
+        // --- Funciones de Formato ---
+
+        function formatNumber(num) {
+            if (num === '' || num === null || isNaN(num)) return '';
+            return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        }
+
+        function parseFormatted(str) {
+            if (!str) return '';
+            // Eliminar puntos y espacios
+            return str.toString().replace(/\./g, '').replace(/\s/g, '');
+        }
+
+        function formatCurrency(num) {
+            if (num === '' || isNaN(num)) return '$0';
+            return new Intl.NumberFormat('es-CL', {
+                style: 'currency',
+                currency: 'CLP',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+            }).format(num);
+        }
+
+        // --- Lógica del Core ---
+
+        function init() {
+            // Inicializar iconos
+            lucide.createIcons();
+            // Renderizar UI inicial
+            updateUI(true);
+        }
+
+        function setMode(newMode) {
+            state.mode = newMode;
+            
+            // Recalcular basado en el cambio de modo
+            if (state.mode === 'bid') {
+                // Venimos de budget, baseValue es la fuente de verdad
+                const tax = state.baseValue * (state.taxRate / 100);
+                state.totalBudget = state.baseValue + tax;
+            } else {
+                // Venimos de bid, totalBudget es la fuente
+                const newBase = state.totalBudget / (1 + (state.taxRate / 100));
+                state.baseValue = newBase;
+            }
+            
+            updateUI(true); // true = actualizar valores de inputs también
+        }
+
+        function handleMainInput(val) {
+            const cleanVal = parseFormatted(val);
+            
+            // Actualizar input con formato mientras escribes (básico)
+            const inputEl = document.getElementById('main-input');
+            
+            if (cleanVal === '') {
+                if (state.mode === 'bid') state.baseValue = '';
+                else state.totalBudget = '';
+            } else if (!isNaN(cleanVal)) {
+                const numVal = parseFloat(cleanVal);
+                if (state.mode === 'bid') {
+                    state.baseValue = numVal;
+                    // Sincronizar presupuesto
+                    state.totalBudget = numVal * (1 + (state.taxRate / 100));
+                } else {
+                    state.totalBudget = numVal;
+                    // Sincronizar base
+                    state.baseValue = numVal / (1 + (state.taxRate / 100));
+                }
+            }
+
+            // Actualizar solo las partes calculadas, no el input que tiene foco para no perder cursor
+            updateUI(false); 
+            
+            // Formatear el input actual sin perder cursor (truco simple)
+            const oldSelectionStart = inputEl.selectionStart;
+            const oldLength = inputEl.value.length;
+            inputEl.value = formatNumber(cleanVal);
+            const newLength = inputEl.value.length;
+            
+            // Intentar mantener posición cursor (aproximado)
+            if (document.activeElement === inputEl) {
+                // Si agregamos puntos, el cursor debe moverse
+                inputEl.setSelectionRange(oldSelectionStart + (newLength - oldLength), oldSelectionStart + (newLength - oldLength));
+            }
+        }
+
+        function handleIncrementInput(val) {
+            const cleanVal = parseFormatted(val);
+            const inputEl = document.getElementById('increment-input');
+
+            if (cleanVal === '') {
+                state.increment = '';
+            } else if (!isNaN(cleanVal)) {
+                state.increment = parseFloat(cleanVal);
+            }
+            
+            updateUI(false);
+
+            // Formato input
+            inputEl.value = formatNumber(cleanVal);
+        }
+
+        function setQuickIncrement(amount) {
+            state.increment = amount;
+            document.getElementById('increment-input').value = formatNumber(amount);
+            updateUI(false);
+        }
+
+        function handleTaxInput(val) {
+            if (val === '') {
+                state.taxRate = 0;
+            } else {
+                state.taxRate = parseFloat(val);
+            }
+            
+            // Recalcular dependientes
+            if (state.mode === 'bid') {
+                const tax = (state.baseValue || 0) * (state.taxRate / 100);
+                state.totalBudget = (state.baseValue || 0) + tax;
+            } else {
+                const newBase = (state.totalBudget || 0) / (1 + (state.taxRate / 100));
+                state.baseValue = newBase;
+            }
+
+            updateUI(false);
+        }
+
+        function quickAddIncrement() {
+            const currentBase = state.baseValue || 0;
+            const inc = state.increment || 0;
+            const newValue = currentBase + inc;
+            
+            state.baseValue = newValue;
+            state.totalBudget = newValue * (1 + (state.taxRate / 100));
+            
+            // Si estamos en budget mode y subimos puja, mejor cambiamos a bid mode
+            if (state.mode === 'budget') {
+                setMode('bid');
+                return; // setMode llama a updateUI
+            }
+
+            updateUI(true);
+        }
+
+        function resetAll() {
+            state.baseValue = 0;
+            state.totalBudget = 0;
+            updateUI(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function selectRow(amount) {
+            state.baseValue = amount;
+            state.totalBudget = amount * (1 + (state.taxRate / 100));
+            
+            if (state.mode === 'budget') {
+                setMode('bid');
+            } else {
+                updateUI(true);
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function copyToClipboard() {
+            const hammer = state.baseValue || 0;
+            const tax = hammer * (state.taxRate / 100);
+            const total = hammer + tax;
+
+            const text = `
+Resumen Remate:
+----------------
+Puja Martillo: ${formatCurrency(hammer)}
+Comisión/Imp (${state.taxRate}%): ${formatCurrency(tax)}
+TOTAL A PAGAR: ${formatCurrency(total)}
+            `.trim();
+
+            navigator.clipboard.writeText(text);
+            
+            // Feedback visual
+            const icon = document.getElementById('copy-icon');
+            // Cambiar a check
+            icon.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>'; // SVG simple de check
+            icon.setAttribute('stroke', '#86efac'); // verde claro
+            
+            setTimeout(() => {
+                // Volver a icono copy
+                icon.innerHTML = '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>';
+                icon.setAttribute('stroke', 'currentColor');
+                lucide.createIcons(); // Re-iniciar iconos por si acaso
+            }, 2000);
+        }
+
+        // --- Renderizado ---
+
+        function updateUI(updateInputs) {
+            // 1. Estilos de Tabs
+            const btnBid = document.getElementById('btn-mode-bid');
+            const btnBudget = document.getElementById('btn-mode-budget');
+            const mainLabel = document.getElementById('main-input-label');
+            const mainInput = document.getElementById('main-input');
+            const resultCard = document.getElementById('result-card');
+            const quickAddBtn = document.getElementById('btn-quick-add');
+            const quickAddText = document.getElementById('quick-add-text');
+
+            if (state.mode === 'bid') {
+                btnBid.className = "flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 bg-blue-600 text-white shadow-md";
+                btnBudget.className = "flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 text-slate-600 hover:bg-slate-50";
+                
+                mainLabel.textContent = "Valor Puja (Martillo)";
+                
+                // Bordes azules
+                mainInput.className = mainInput.className.replace('border-emerald-100', 'border-blue-100').replace('focus:ring-emerald-500', 'focus:ring-blue-500').replace('focus:border-emerald-500', 'focus:border-blue-500');
+                
+                // Tarjeta azul
+                resultCard.className = "p-6 rounded-2xl shadow-lg text-white flex flex-col justify-center transition-colors duration-300 bg-blue-600 relative";
+                
+                // Mostrar controles de suma
+                quickAddBtn.style.display = 'flex';
+                quickAddText.style.display = 'block';
+
+            } else {
+                btnBid.className = "flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 text-slate-600 hover:bg-slate-50";
+                btnBudget.className = "flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 bg-emerald-600 text-white shadow-md";
+                
+                mainLabel.textContent = "Presupuesto Total (Tope)";
+                
+                // Bordes verdes
+                mainInput.className = mainInput.className.replace('border-blue-100', 'border-emerald-100').replace('focus:ring-blue-500', 'focus:ring-emerald-500').replace('focus:border-blue-500', 'focus:border-emerald-500');
+                
+                // Tarjeta verde
+                resultCard.className = "p-6 rounded-2xl shadow-lg text-white flex flex-col justify-center transition-colors duration-300 bg-emerald-600 relative";
+                
+                // Ocultar controles de suma
+                quickAddBtn.style.display = 'none';
+                quickAddText.style.display = 'none';
+            }
+
+            // 2. Actualizar valores de Inputs (solo si se pide, para no molestar al escribir)
+            if (updateInputs) {
+                const valToShow = state.mode === 'bid' ? state.baseValue : state.totalBudget;
+                mainInput.value = formatNumber(valToShow);
+                document.getElementById('increment-input').value = formatNumber(state.increment);
+                document.getElementById('tax-input').value = state.taxRate;
+            }
+
+            document.getElementById('increment-display-text').textContent = formatNumber(state.increment);
+
+            // 3. Cálculos de Resultado
+            const hammer = state.baseValue || 0;
+            const tax = hammer * (state.taxRate / 100);
+            const total = hammer + tax;
+
+            document.getElementById('display-hammer').textContent = formatCurrency(hammer);
+            document.getElementById('display-tax-rate').textContent = state.taxRate;
+            document.getElementById('display-tax').textContent = "+ " + formatCurrency(tax);
+            document.getElementById('display-total').textContent = formatCurrency(total);
+
+            // 4. Tabla de Proyecciones
+            const tbody = document.getElementById('projection-table-body');
+            tbody.innerHTML = ''; // Limpiar
+
+            const limit = state.mode === 'budget' ? (state.totalBudget || 0) : total; // En modo budget el limite es fijo, en bid es referencial
+            const budgetWarning = document.getElementById('budget-warning');
+            
+            if (state.mode === 'budget' && limit > 0) {
+                budgetWarning.style.display = 'flex';
+                document.getElementById('budget-limit-display').textContent = formatCurrency(limit);
+            } else {
+                budgetWarning.style.display = 'none';
+            }
+
+            let currentHammer = hammer;
+            const safeIncrement = state.increment || 0;
+
+            for (let i = 1; i <= 20; i++) {
+                currentHammer += safeIncrement;
+                const rowTax = currentHammer * (state.taxRate / 100);
+                const rowTotal = currentHammer + rowTax;
+
+                const isOverBudget = state.mode === 'budget' && limit > 0 && rowTotal > limit;
+
+                const tr = document.createElement('tr');
+                tr.className = `transition-colors cursor-pointer group ${isOverBudget ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-blue-50'}`;
+                tr.onclick = () => selectRow(currentHammer);
+
+                tr.innerHTML = `
+                    <td class="p-3 font-medium w-12 ${isOverBudget ? 'text-red-400' : 'text-slate-400 group-hover:text-blue-500'}">
+                        +${i}
+                    </td>
+                    <td class="p-3 font-bold ${isOverBudget ? 'text-red-700' : 'text-slate-700 group-hover:text-blue-700'}">
+                        ${formatCurrency(currentHammer)}
+                    </td>
+                    <td class="p-3 hidden sm:table-cell ${isOverBudget ? 'text-red-400' : 'text-slate-500'}">
+                        ${formatCurrency(rowTax)}
+                    </td>
+                    <td class="p-3">
+                        <span class="font-bold px-2 py-1 rounded ${isOverBudget ? 'bg-white text-red-600 border border-red-200' : 'bg-blue-50 text-blue-700 border border-blue-100 group-hover:bg-blue-100'}">
+                            ${formatCurrency(rowTotal)}
+                        </span>
+                        ${isOverBudget ? '<span class="text-[10px] text-red-500 ml-2 font-bold uppercase hidden sm:inline">Fuera</span>' : ''}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+
+        // Arrancar
+        window.addEventListener('load', init);
+
+    </script>
+</body>
+</html>
 
