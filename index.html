@@ -68,7 +68,7 @@
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
                 <div class="space-y-5">
                     
-                    <!-- NUEVO CAMPO: Descripción -->
+                    <!-- Campo Descripción: Optimizado para no bloquear -->
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
                             Descripción / Item (Opcional)
@@ -280,34 +280,45 @@
             description: ''
         };
 
-        // --- Funciones de Formato ---
+        let tableTimeout = null;
+
+        // --- Funciones de Formato Eficientes ---
+
+        // Regex pre-compilada para mayor velocidad
+        const numberFormatRegex = /\B(?=(\d{3})+(?!\d))/g;
 
         function formatNumber(num) {
             if (num === '' || num === null || isNaN(num)) return '';
-            return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+            // Usamos una conversión más directa
+            return Math.round(num).toString().replace(numberFormatRegex, ".");
         }
 
         function parseFormatted(str) {
             if (!str) return '';
-            // Eliminar puntos y espacios
-            return str.toString().replace(/\./g, '').replace(/\s/g, '');
+            // Versión simplificada para limpieza
+            return str.replace(/[^\d]/g, '');
         }
+
+        const currencyFormatter = new Intl.NumberFormat('es-CL', {
+            style: 'currency',
+            currency: 'CLP',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        });
 
         function formatCurrency(num) {
             if (num === '' || isNaN(num)) return '$0';
-            return new Intl.NumberFormat('es-CL', {
-                style: 'currency',
-                currency: 'CLP',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0,
-            }).format(num);
+            return currencyFormatter.format(num);
         }
 
         // --- Lógica del Core ---
 
         function init() {
             lucide.createIcons();
-            updateUI(true);
+            // Inicialización completa
+            renderCard();
+            updateInputs();
+            renderTable(); // Renderizado inicial de la tabla
         }
 
         function setMode(newMode) {
@@ -319,22 +330,36 @@
                 const newBase = state.totalBudget / (1 + (state.taxRate / 100));
                 state.baseValue = newBase;
             }
-            updateUI(true);
+            
+            updateModeUI();
+            updateInputs();
+            renderCard();
+            requestTableUpdate(); // Tabla diferida
         }
 
         function handleDescriptionInput(val) {
             state.description = val;
-            updateUI(false);
+            // Solo actualizamos el DOM de la descripción, NO la tabla entera
+            const descContainer = document.getElementById('card-description-container');
+            const descDisplay = document.getElementById('display-description');
+            
+            if (state.description && state.description.trim() !== '') {
+                descContainer.classList.remove('hidden');
+                descDisplay.textContent = state.description;
+            } else {
+                descContainer.classList.add('hidden');
+            }
         }
 
         function handleMainInput(val) {
             const cleanVal = parseFormatted(val);
             const inputEl = document.getElementById('main-input');
             
+            // Actualización de estado
             if (cleanVal === '') {
                 if (state.mode === 'bid') state.baseValue = '';
                 else state.totalBudget = '';
-            } else if (!isNaN(cleanVal)) {
+            } else {
                 const numVal = parseFloat(cleanVal);
                 if (state.mode === 'bid') {
                     state.baseValue = numVal;
@@ -345,16 +370,23 @@
                 }
             }
 
-            updateUI(false); 
+            // 1. Renderizado Crítico (Inmediato)
+            renderCard();
             
+            // 2. Mantenimiento del cursor y formato del input
             const oldSelectionStart = inputEl.selectionStart;
             const oldLength = inputEl.value.length;
-            inputEl.value = formatNumber(cleanVal);
-            const newLength = inputEl.value.length;
+            const formatted = formatNumber(cleanVal);
+            inputEl.value = formatted;
+            const newLength = formatted.length;
             
             if (document.activeElement === inputEl) {
-                inputEl.setSelectionRange(oldSelectionStart + (newLength - oldLength), oldSelectionStart + (newLength - oldLength));
+                const newPos = oldSelectionStart + (newLength - oldLength);
+                inputEl.setSelectionRange(newPos, newPos);
             }
+
+            // 3. Renderizado No Crítico (Diferido/Debounced)
+            requestTableUpdate();
         }
 
         function handleIncrementInput(val) {
@@ -363,52 +395,17 @@
 
             if (cleanVal === '') {
                 state.increment = '';
-            } else if (!isNaN(cleanVal)) {
+            } else {
                 state.increment = parseFloat(cleanVal);
             }
-            updateUI(false);
+            
+            // Actualizar visual input
             inputEl.value = formatNumber(cleanVal);
+            
+            // Actualizar resto UI
+            document.getElementById('increment-display-text').textContent = formatNumber(state.increment);
+            requestTableUpdate(); // Diferido
         }
 
         function setQuickIncrement(amount) {
-            state.increment = amount;
-            document.getElementById('increment-input').value = formatNumber(amount);
-            updateUI(false);
-        }
-
-        function handleTaxInput(val) {
-            if (val === '') {
-                state.taxRate = 0;
-            } else {
-                state.taxRate = parseFloat(val);
-            }
-            if (state.mode === 'bid') {
-                const tax = (state.baseValue || 0) * (state.taxRate / 100);
-                state.totalBudget = (state.baseValue || 0) + tax;
-            } else {
-                const newBase = (state.totalBudget || 0) / (1 + (state.taxRate / 100));
-                state.baseValue = newBase;
-            }
-            updateUI(false);
-        }
-
-        function quickAddIncrement() {
-            const currentBase = state.baseValue || 0;
-            const inc = state.increment || 0;
-            const newValue = currentBase + inc;
-            state.baseValue = newValue;
-            state.totalBudget = newValue * (1 + (state.taxRate / 100));
-            if (state.mode === 'budget') {
-                setMode('bid');
-                return;
-            }
-            updateUI(true);
-        }
-
-        function resetAll() {
-            state.baseValue = 0;
-            state.totalBudget = 0;
-            state.description = ''; // Reset descripción
-            document.getElementById('description-input').value = '';
-            updateUI(true);
-            window.scrollTo({ top: 0, behavior: 'sm
+            state.increment = amou
