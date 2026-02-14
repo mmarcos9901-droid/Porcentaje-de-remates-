@@ -68,6 +68,27 @@
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
                 <div class="space-y-5">
                     
+                    <!-- NUEVO CAMPO: Descripción -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Descripción / Item (Opcional)
+                        </label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                                <i data-lucide="tag" class="w-4 h-4"></i>
+                            </span>
+                            <input
+                                type="text"
+                                id="description-input"
+                                oninput="handleDescriptionInput(this.value)"
+                                placeholder="Ej: BMW 1200 / Lote 45"
+                                class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-700 placeholder-slate-400"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="w-full h-px bg-slate-100"></div>
+
                     <!-- Input Dinámico (Cambia según modo) -->
                     <div>
                         <label id="main-input-label" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
@@ -151,16 +172,22 @@
             </div>
 
             <!-- Tarjeta de Resultado -->
-            <div id="result-card" class="p-6 rounded-2xl shadow-lg text-white flex flex-col justify-center transition-colors duration-300 bg-blue-600 relative">
+            <div id="result-card" class="p-6 rounded-2xl shadow-lg text-white flex flex-col justify-between transition-colors duration-300 bg-blue-600 relative">
                 <button 
                     onclick="copyToClipboard()"
-                    class="absolute top-2 right-2 p-2 hover:bg-white/10 rounded-lg transition-colors group"
+                    class="absolute top-2 right-2 p-2 hover:bg-white/10 rounded-lg transition-colors group z-10"
                     title="Copiar resumen"
                 >
                     <i id="copy-icon" data-lucide="copy" class="w-5 h-5 text-white/70 group-hover:text-white"></i>
                 </button>
 
                 <div class="space-y-4">
+                    <!-- Descripción -->
+                    <div id="card-description-container" class="hidden mb-2 pb-2 border-b border-white/10">
+                        <span class="text-white/60 text-xs font-bold uppercase tracking-wider">Item / Lote</span>
+                        <h3 id="display-description" class="text-xl font-bold text-white truncate"></h3>
+                    </div>
+
                     <div class="flex justify-between items-end border-b border-white/20 pb-2">
                         <span class="text-white/80 text-sm">Valor Martillo</span>
                         <span id="display-hammer" class="font-bold text-xl">$0</span>
@@ -179,6 +206,31 @@
                             $0
                         </span>
                     </div>
+                    
+                    <!-- SECCIÓN WHATSAPP -->
+                    <div class="mt-4 pt-3 border-t border-white/20">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i data-lucide="message-circle" class="w-4 h-4 text-white/80"></i>
+                            <span class="text-xs text-white/80 font-medium uppercase">Enviar a WhatsApp</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <input 
+                                type="tel" 
+                                id="whatsapp-input" 
+                                value="56958635985" 
+                                class="flex-1 bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/40 text-sm outline-none focus:bg-black/30 transition-colors font-mono"
+                                placeholder="Ej: 569..."
+                            />
+                            <button 
+                                onclick="sendToWhatsapp()" 
+                                class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg transition-colors flex items-center justify-center shadow-lg active:scale-95"
+                                title="Enviar mensaje"
+                            >
+                                <i data-lucide="send" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -224,7 +276,8 @@
             baseValue: 1000000,
             totalBudget: 1500000,
             increment: 100000,
-            taxRate: 19
+            taxRate: 19,
+            description: ''
         };
 
         // --- Funciones de Formato ---
@@ -253,33 +306,29 @@
         // --- Lógica del Core ---
 
         function init() {
-            // Inicializar iconos
             lucide.createIcons();
-            // Renderizar UI inicial
             updateUI(true);
         }
 
         function setMode(newMode) {
             state.mode = newMode;
-            
-            // Recalcular basado en el cambio de modo
             if (state.mode === 'bid') {
-                // Venimos de budget, baseValue es la fuente de verdad
                 const tax = state.baseValue * (state.taxRate / 100);
                 state.totalBudget = state.baseValue + tax;
             } else {
-                // Venimos de bid, totalBudget es la fuente
                 const newBase = state.totalBudget / (1 + (state.taxRate / 100));
                 state.baseValue = newBase;
             }
-            
-            updateUI(true); // true = actualizar valores de inputs también
+            updateUI(true);
+        }
+
+        function handleDescriptionInput(val) {
+            state.description = val;
+            updateUI(false);
         }
 
         function handleMainInput(val) {
             const cleanVal = parseFormatted(val);
-            
-            // Actualizar input con formato mientras escribes (básico)
             const inputEl = document.getElementById('main-input');
             
             if (cleanVal === '') {
@@ -289,27 +338,21 @@
                 const numVal = parseFloat(cleanVal);
                 if (state.mode === 'bid') {
                     state.baseValue = numVal;
-                    // Sincronizar presupuesto
                     state.totalBudget = numVal * (1 + (state.taxRate / 100));
                 } else {
                     state.totalBudget = numVal;
-                    // Sincronizar base
                     state.baseValue = numVal / (1 + (state.taxRate / 100));
                 }
             }
 
-            // Actualizar solo las partes calculadas, no el input que tiene foco para no perder cursor
             updateUI(false); 
             
-            // Formatear el input actual sin perder cursor (truco simple)
             const oldSelectionStart = inputEl.selectionStart;
             const oldLength = inputEl.value.length;
             inputEl.value = formatNumber(cleanVal);
             const newLength = inputEl.value.length;
             
-            // Intentar mantener posición cursor (aproximado)
             if (document.activeElement === inputEl) {
-                // Si agregamos puntos, el cursor debe moverse
                 inputEl.setSelectionRange(oldSelectionStart + (newLength - oldLength), oldSelectionStart + (newLength - oldLength));
             }
         }
@@ -323,10 +366,7 @@
             } else if (!isNaN(cleanVal)) {
                 state.increment = parseFloat(cleanVal);
             }
-            
             updateUI(false);
-
-            // Formato input
             inputEl.value = formatNumber(cleanVal);
         }
 
@@ -342,8 +382,6 @@
             } else {
                 state.taxRate = parseFloat(val);
             }
-            
-            // Recalcular dependientes
             if (state.mode === 'bid') {
                 const tax = (state.baseValue || 0) * (state.taxRate / 100);
                 state.totalBudget = (state.baseValue || 0) + tax;
@@ -351,7 +389,6 @@
                 const newBase = (state.totalBudget || 0) / (1 + (state.taxRate / 100));
                 state.baseValue = newBase;
             }
-
             updateUI(false);
         }
 
@@ -359,185 +396,19 @@
             const currentBase = state.baseValue || 0;
             const inc = state.increment || 0;
             const newValue = currentBase + inc;
-            
             state.baseValue = newValue;
             state.totalBudget = newValue * (1 + (state.taxRate / 100));
-            
-            // Si estamos en budget mode y subimos puja, mejor cambiamos a bid mode
             if (state.mode === 'budget') {
                 setMode('bid');
-                return; // setMode llama a updateUI
+                return;
             }
-
             updateUI(true);
         }
 
         function resetAll() {
             state.baseValue = 0;
             state.totalBudget = 0;
+            state.description = ''; // Reset descripción
+            document.getElementById('description-input').value = '';
             updateUI(true);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function selectRow(amount) {
-            state.baseValue = amount;
-            state.totalBudget = amount * (1 + (state.taxRate / 100));
-            
-            if (state.mode === 'budget') {
-                setMode('bid');
-            } else {
-                updateUI(true);
-            }
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function copyToClipboard() {
-            const hammer = state.baseValue || 0;
-            const tax = hammer * (state.taxRate / 100);
-            const total = hammer + tax;
-
-            const text = `
-Resumen Remate:
-----------------
-Puja Martillo: ${formatCurrency(hammer)}
-Comisión/Imp (${state.taxRate}%): ${formatCurrency(tax)}
-TOTAL A PAGAR: ${formatCurrency(total)}
-            `.trim();
-
-            navigator.clipboard.writeText(text);
-            
-            // Feedback visual
-            const icon = document.getElementById('copy-icon');
-            // Cambiar a check
-            icon.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>'; // SVG simple de check
-            icon.setAttribute('stroke', '#86efac'); // verde claro
-            
-            setTimeout(() => {
-                // Volver a icono copy
-                icon.innerHTML = '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>';
-                icon.setAttribute('stroke', 'currentColor');
-                lucide.createIcons(); // Re-iniciar iconos por si acaso
-            }, 2000);
-        }
-
-        // --- Renderizado ---
-
-        function updateUI(updateInputs) {
-            // 1. Estilos de Tabs
-            const btnBid = document.getElementById('btn-mode-bid');
-            const btnBudget = document.getElementById('btn-mode-budget');
-            const mainLabel = document.getElementById('main-input-label');
-            const mainInput = document.getElementById('main-input');
-            const resultCard = document.getElementById('result-card');
-            const quickAddBtn = document.getElementById('btn-quick-add');
-            const quickAddText = document.getElementById('quick-add-text');
-
-            if (state.mode === 'bid') {
-                btnBid.className = "flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 bg-blue-600 text-white shadow-md";
-                btnBudget.className = "flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 text-slate-600 hover:bg-slate-50";
-                
-                mainLabel.textContent = "Valor Puja (Martillo)";
-                
-                // Bordes azules
-                mainInput.className = mainInput.className.replace('border-emerald-100', 'border-blue-100').replace('focus:ring-emerald-500', 'focus:ring-blue-500').replace('focus:border-emerald-500', 'focus:border-blue-500');
-                
-                // Tarjeta azul
-                resultCard.className = "p-6 rounded-2xl shadow-lg text-white flex flex-col justify-center transition-colors duration-300 bg-blue-600 relative";
-                
-                // Mostrar controles de suma
-                quickAddBtn.style.display = 'flex';
-                quickAddText.style.display = 'block';
-
-            } else {
-                btnBid.className = "flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 text-slate-600 hover:bg-slate-50";
-                btnBudget.className = "flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 bg-emerald-600 text-white shadow-md";
-                
-                mainLabel.textContent = "Presupuesto Total (Tope)";
-                
-                // Bordes verdes
-                mainInput.className = mainInput.className.replace('border-blue-100', 'border-emerald-100').replace('focus:ring-blue-500', 'focus:ring-emerald-500').replace('focus:border-blue-500', 'focus:border-emerald-500');
-                
-                // Tarjeta verde
-                resultCard.className = "p-6 rounded-2xl shadow-lg text-white flex flex-col justify-center transition-colors duration-300 bg-emerald-600 relative";
-                
-                // Ocultar controles de suma
-                quickAddBtn.style.display = 'none';
-                quickAddText.style.display = 'none';
-            }
-
-            // 2. Actualizar valores de Inputs (solo si se pide, para no molestar al escribir)
-            if (updateInputs) {
-                const valToShow = state.mode === 'bid' ? state.baseValue : state.totalBudget;
-                mainInput.value = formatNumber(valToShow);
-                document.getElementById('increment-input').value = formatNumber(state.increment);
-                document.getElementById('tax-input').value = state.taxRate;
-            }
-
-            document.getElementById('increment-display-text').textContent = formatNumber(state.increment);
-
-            // 3. Cálculos de Resultado
-            const hammer = state.baseValue || 0;
-            const tax = hammer * (state.taxRate / 100);
-            const total = hammer + tax;
-
-            document.getElementById('display-hammer').textContent = formatCurrency(hammer);
-            document.getElementById('display-tax-rate').textContent = state.taxRate;
-            document.getElementById('display-tax').textContent = "+ " + formatCurrency(tax);
-            document.getElementById('display-total').textContent = formatCurrency(total);
-
-            // 4. Tabla de Proyecciones
-            const tbody = document.getElementById('projection-table-body');
-            tbody.innerHTML = ''; // Limpiar
-
-            const limit = state.mode === 'budget' ? (state.totalBudget || 0) : total; // En modo budget el limite es fijo, en bid es referencial
-            const budgetWarning = document.getElementById('budget-warning');
-            
-            if (state.mode === 'budget' && limit > 0) {
-                budgetWarning.style.display = 'flex';
-                document.getElementById('budget-limit-display').textContent = formatCurrency(limit);
-            } else {
-                budgetWarning.style.display = 'none';
-            }
-
-            let currentHammer = hammer;
-            const safeIncrement = state.increment || 0;
-
-            for (let i = 1; i <= 20; i++) {
-                currentHammer += safeIncrement;
-                const rowTax = currentHammer * (state.taxRate / 100);
-                const rowTotal = currentHammer + rowTax;
-
-                const isOverBudget = state.mode === 'budget' && limit > 0 && rowTotal > limit;
-
-                const tr = document.createElement('tr');
-                tr.className = `transition-colors cursor-pointer group ${isOverBudget ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-blue-50'}`;
-                tr.onclick = () => selectRow(currentHammer);
-
-                tr.innerHTML = `
-                    <td class="p-3 font-medium w-12 ${isOverBudget ? 'text-red-400' : 'text-slate-400 group-hover:text-blue-500'}">
-                        +${i}
-                    </td>
-                    <td class="p-3 font-bold ${isOverBudget ? 'text-red-700' : 'text-slate-700 group-hover:text-blue-700'}">
-                        ${formatCurrency(currentHammer)}
-                    </td>
-                    <td class="p-3 hidden sm:table-cell ${isOverBudget ? 'text-red-400' : 'text-slate-500'}">
-                        ${formatCurrency(rowTax)}
-                    </td>
-                    <td class="p-3">
-                        <span class="font-bold px-2 py-1 rounded ${isOverBudget ? 'bg-white text-red-600 border border-red-200' : 'bg-blue-50 text-blue-700 border border-blue-100 group-hover:bg-blue-100'}">
-                            ${formatCurrency(rowTotal)}
-                        </span>
-                        ${isOverBudget ? '<span class="text-[10px] text-red-500 ml-2 font-bold uppercase hidden sm:inline">Fuera</span>' : ''}
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            }
-        }
-
-        // Arrancar
-        window.addEventListener('load', init);
-
-    </script>
-</body>
-</html>
-
+            window.scrollTo({ top: 0, behavior: 'sm
