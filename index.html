@@ -8,29 +8,22 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Iconos Lucide (CDN más rápido) -->
+    <!-- Iconos Lucide -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <style>
-        /* Estilos base */
-        body { -webkit-tap-highlight-color: transparent; }
-        
-        /* Inputs numéricos limpios */
+        /* Desactivar zoom y estilos nativos en inputs */
+        input { font-size: 16px !important; }
         input::-webkit-outer-spin-button,
         input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
         
-        /* Prevenir zoom automático en iOS al escribir */
-        input { font-size: 16px !important; }
-
-        .smooth-transition {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+        body { -webkit-tap-highlight-color: transparent; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen p-3 md:p-8 font-sans text-slate-800">
 
-    <div class="max-w-4xl mx-auto space-y-5">
+    <div class="max-w-4xl mx-auto space-y-4">
         
         <!-- Header -->
         <header class="flex items-center justify-between mb-2">
@@ -42,8 +35,8 @@
                     <h1 class="text-xl md:text-2xl font-bold text-slate-900 leading-tight">Calculadora Remates</h1>
                 </div>
             </div>
-            <button onclick="hardReset()" class="text-slate-500 hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg transition-colors text-sm flex items-center gap-1 font-medium border border-transparent hover:border-red-100">
-                <i data-lucide="trash-2" class="w-4 h-4"></i> Limpiar Todo
+            <button onclick="hardReset()" class="text-slate-500 hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg transition-colors text-sm flex items-center gap-1 font-medium">
+                <i data-lucide="trash-2" class="w-4 h-4"></i> Limpiar
             </button>
         </header>
 
@@ -62,10 +55,10 @@
         <!-- Panel Principal -->
         <div class="grid md:grid-cols-2 gap-4">
             
-            <!-- Formulario -->
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between gap-4">
+            <!-- Inputs -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-4">
                 
-                <!-- Campo Descripción -->
+                <!-- Descripción -->
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
                         Descripción / Item
@@ -95,11 +88,10 @@
                         <div class="relative flex-1">
                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">$</span>
                             <input
-                                type="text"
-                                inputmode="numeric"
+                                type="tel" 
                                 id="main-input"
+                                onkeyup="handleMainInput(this)"
                                 oninput="handleMainInput(this)"
-                                onfocus="this.select()"
                                 placeholder="0"
                                 class="w-full pl-8 pr-4 py-3 bg-slate-50 border-2 border-blue-100 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-bold text-2xl text-slate-800 placeholder-slate-300 transition-colors"
                             />
@@ -109,7 +101,6 @@
                             id="btn-quick-add"
                             onclick="quickAdd()"
                             class="bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold rounded-xl px-4 flex items-center justify-center transition-colors active:scale-95 border border-blue-200"
-                            title="Sumar incremento"
                         >
                             <i data-lucide="plus" class="w-6 h-6"></i>
                         </button>
@@ -125,12 +116,10 @@
                         <div class="relative">
                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">+</span>
                             <input
-                                type="text"
-                                inputmode="numeric"
+                                type="tel"
                                 id="increment-input"
                                 value="100.000"
                                 oninput="handleIncrementInput(this)"
-                                onfocus="this.select()"
                                 class="w-full pl-7 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium"
                             />
                         </div>
@@ -146,7 +135,6 @@
                                 id="tax-input"
                                 value="19"
                                 oninput="handleTaxInput(this.value)"
-                                onfocus="this.select()"
                                 class="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-center"
                             />
                             <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -158,20 +146,18 @@
             </div>
 
             <!-- Tarjeta de Resultado -->
-            <div id="result-card" class="p-6 rounded-2xl shadow-lg text-white flex flex-col justify-between transition-colors duration-300 bg-blue-600 relative">
+            <div id="result-card" class="p-6 rounded-2xl shadow-lg text-white flex flex-col justify-between transition-colors duration-300 bg-blue-600 relative min-h-[250px]">
                 
-                <!-- Botón Copiar Flotante -->
                 <button 
                     onclick="copyData()"
                     class="absolute top-3 right-3 p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors backdrop-blur-sm z-10"
-                    title="Copiar datos"
                 >
                     <i id="copy-icon" data-lucide="copy" class="w-5 h-5 text-white"></i>
                 </button>
 
                 <div class="space-y-4">
                     <!-- Descripción Dinámica -->
-                    <div id="desc-display-container" class="hidden pb-3 border-b border-white/10">
+                    <div id="desc-display-container" class="hidden pb-2 border-b border-white/10">
                         <span class="text-white/60 text-[10px] font-bold uppercase tracking-widest">Item / Lote</span>
                         <h3 id="display-description" class="text-xl font-bold text-white truncate leading-tight mt-1"></h3>
                     </div>
@@ -199,7 +185,7 @@
                     </div>
                     
                     <!-- Enviar WhatsApp -->
-                    <div class="pt-4 mt-auto">
+                    <div class="pt-2 mt-auto">
                         <div class="flex gap-2">
                             <input 
                                 type="tel" 
@@ -251,159 +237,84 @@
     </div>
 
     <script>
-        // --- Variables Globales Limpias ---
+        // --- Variables de Estado ---
         let appState = {
-            mode: 'bid',         // 'bid' o 'budget'
-            baseValue: 0,        // Valor numérico real
-            totalBudget: 0,      // Valor numérico real
-            increment: 100000,   // Incremento defecto
-            taxRate: 19,         // Porcentaje
-            description: ''      // Texto
+            mode: 'bid',
+            baseValue: 0,
+            increment: 100000,
+            taxRate: 19,
+            description: ''
         };
-        
-        // Timeout para no bloquear el celular al renderizar la tabla
-        let renderTimeout;
+        let tableTimeout;
 
-        // --- Funciones de Formato Seguras ---
-        const formatMoney = (num) => {
-            if (!num && num !== 0) return '';
-            // Convertir a string con puntos de miles
-            return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-        };
-
+        // --- Funciones de Formato ---
+        const formatMoney = (num) => num ? Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : '';
         const cleanMoney = (str) => {
-            if (!str) return 0;
-            // Eliminar todo lo que no sea número
-            const clean = str.toString().replace(/\./g, '').replace(/[^\d]/g, '');
-            return clean === '' ? 0 : parseInt(clean, 10);
+            if(!str) return 0;
+            const clean = str.toString().replace(/[^\d]/g, ''); // Solo números
+            return clean ? parseInt(clean, 10) : 0;
         };
+        const toCurrency = (num) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(num || 0);
 
-        const toCurrency = (num) => {
-            return new Intl.NumberFormat('es-CL', {
-                style: 'currency',
-                currency: 'CLP',
-                minimumFractionDigits: 0
-            }).format(num || 0);
-        };
-
-        // --- Lógica Principal ---
-
-        function init() {
+        // --- Inicialización ---
+        window.onload = function() {
             lucide.createIcons();
-            // Iniciar limpio
-            hardReset();
-        }
+            hardReset(); // Empezar limpio
+        };
 
         function hardReset() {
-            // Reiniciar estado a 0
             appState.baseValue = 0;
-            appState.totalBudget = 0;
             appState.description = '';
-            
-            // Limpiar inputs visuales
             document.getElementById('main-input').value = '';
             document.getElementById('description-input').value = '';
-            
-            // Forzar actualización visual
-            handleDescriptionInput('');
-            refreshCalculations();
+            document.getElementById('desc-display-container').classList.add('hidden');
+            renderCalculations();
+            renderTable();
         }
 
-        // Manejo de Descripción (Separado para no trabar cálculos)
-        function updateDescription(val) {
-            appState.description = val;
-            const container = document.getElementById('desc-display-container');
-            const text = document.getElementById('display-description');
-            
-            if (val.trim()) {
-                container.classList.remove('hidden');
-                text.textContent = val;
-            } else {
-                container.classList.add('hidden');
-            }
-        }
-
-        // Manejo Input Principal (Con cuidado del cursor)
+        // --- Manejo del Input Principal (CRÍTICO) ---
         function handleMainInput(el) {
-            // 1. Obtener valor limpio
-            const rawValue = cleanMoney(el.value);
+            // 1. Obtener valor limpio (sin puntos)
+            const rawVal = cleanMoney(el.value);
             
-            // 2. Guardar en estado según modo
+            // 2. Calcular valor base según modo
             if (appState.mode === 'bid') {
-                appState.baseValue = rawValue;
-                // Calculamos presupuesto derivado
-                appState.totalBudget = rawValue * (1 + (appState.taxRate / 100));
+                appState.baseValue = rawVal;
             } else {
-                appState.totalBudget = rawValue;
-                // Calculamos base derivada
-                appState.baseValue = rawValue / (1 + (appState.taxRate / 100));
+                appState.baseValue = rawVal / (1 + (appState.taxRate / 100));
             }
 
-            // 3. Formatear input (poner puntos) sin saltar el cursor
-            const oldVal = el.value;
-            const formatted = rawValue === 0 ? '' : formatMoney(rawValue); // Si es 0 mostramos vacío
-            
-            if (oldVal !== formatted) {
-                // Truco para mantener cursor al final si escribimos normal
-                // Si editamos al medio es más complejo, pero para remates (rapidez) esto basta
-                el.value = formatted; 
+            // 3. Renderizar Tarjeta INMEDIATAMENTE (Lo más importante)
+            renderCalculations();
+
+            // 4. Formatear input (poner puntos) solo si cambió visualmente
+            // Esto evita que el cursor salte o se borre mientras escribes
+            const formatted = rawVal === 0 ? '' : formatMoney(rawVal);
+            if (el.value.replace(/[^\d]/g, '') !== rawVal.toString()) {
+                 // Si el valor numérico cambió drásticamente, forzamos update
+                 el.value = formatted;
+            } else if (el.value !== formatted && rawVal !== 0) {
+                 // Solo actualizamos el formato si no es 0
+                 // Guardamos posición del cursor para restaurarla
+                 const cursor = el.selectionStart; 
+                 // Ajuste simple: si agregamos puntos, el cursor se mueve
+                 const lenBefore = el.value.length;
+                 el.value = formatted;
+                 const lenAfter = el.value.length;
+                 if (document.activeElement === el) {
+                     // Ajuste aproximado del cursor
+                     const newPos = cursor + (lenAfter - lenBefore);
+                     el.setSelectionRange(newPos, newPos);
+                 }
             }
 
-            // 4. Actualizar resto de la UI
-            refreshCalculations();
+            // 5. Renderizar tabla con delay (para no trabar el celular)
+            if (tableTimeout) clearTimeout(tableTimeout);
+            tableTimeout = setTimeout(renderTable, 50);
         }
 
-        function handleIncrementInput(el) {
-            const val = cleanMoney(el.value);
-            appState.increment = val;
-            el.value = val === 0 ? '' : formatMoney(val);
-            scheduleTableRender(); // Renderizar tabla diferido
-        }
-
-        function handleTaxInput(val) {
-            appState.taxRate = val ? parseFloat(val) : 0;
-            // Recalcular dependencias
-            if (appState.mode === 'bid') {
-                appState.totalBudget = appState.baseValue * (1 + (appState.taxRate / 100));
-            } else {
-                appState.baseValue = appState.totalBudget / (1 + (appState.taxRate / 100));
-            }
-            refreshCalculations();
-        }
-
-        function setMode(mode) {
-            appState.mode = mode;
-            updateModeStyles();
-            
-            // Sincronizar input visual
-            const valToShow = mode === 'bid' ? appState.baseValue : appState.totalBudget;
-            document.getElementById('main-input').value = valToShow === 0 ? '' : formatMoney(valToShow);
-            
-            refreshCalculations();
-        }
-
-        function quickAdd() {
-            // Sumar incremento a la base
-            const current = appState.baseValue;
-            const next = current + appState.increment;
-            
-            appState.baseValue = next;
-            appState.totalBudget = next * (1 + (appState.taxRate / 100));
-            
-            // Si estábamos en presupuesto, pasamos a puja para ver el nuevo valor
-            if (appState.mode === 'budget') {
-                setMode('bid');
-            } else {
-                // Actualizar solo input visual
-                document.getElementById('main-input').value = formatMoney(next);
-                refreshCalculations();
-            }
-        }
-
-        // --- Renderizado UI ---
-
-        function refreshCalculations() {
-            // 1. Renderizar Tarjeta (Rápido)
+        // --- Renderizado de Cálculos (Tarjeta Azul/Verde) ---
+        function renderCalculations() {
             const hammer = appState.baseValue;
             const tax = hammer * (appState.taxRate / 100);
             const total = hammer + tax;
@@ -412,21 +323,161 @@
             document.getElementById('display-tax-rate').textContent = appState.taxRate;
             document.getElementById('display-tax').textContent = "+ " + toCurrency(tax);
             document.getElementById('display-total').textContent = toCurrency(total);
-
-            // 2. Agendar renderizado de tabla (Lento, no bloquear UI)
-            scheduleTableRender();
         }
 
-        function scheduleTableRender() {
-            if (renderTimeout) clearTimeout(renderTimeout);
-            renderTimeout = setTimeout(renderTable, 50); // Esperar 50ms a que termines de escribir
-        }
-
+        // --- Renderizado de Tabla (Optimizado) ---
         function renderTable() {
             const tbody = document.getElementById('table-body');
-            tbody.innerHTML = ''; // Limpiar
-
+            tbody.innerHTML = '';
+            
             const hammer = appState.baseValue;
-            const taxFactor = appState.taxRate / 100;
             const inc = appState.increment;
-   
+            const taxFactor = 1 + (appState.taxRate / 100);
+            const limit = appState.mode === 'budget' ? (hammer * taxFactor) : 0; // Aproximado para modo budget
+            
+            // Si estamos en budget mode, el input es el budget total
+            const totalBudgetInput = appState.mode === 'budget' ? (hammer * taxFactor) : 0;
+
+            const fragment = document.createDocumentFragment();
+            let currentBase = hammer;
+
+            for(let i=1; i<=20; i++) {
+                currentBase += inc;
+                const total = currentBase * taxFactor;
+                const isOver = appState.mode === 'budget' && total > totalBudgetInput;
+                
+                const tr = document.createElement('tr');
+                tr.className = isOver ? 'bg-red-50 text-red-800' : 'hover:bg-blue-50 transition-colors cursor-pointer';
+                
+                // Closure para el click
+                (function(val) {
+                    tr.onclick = function() { 
+                        appState.baseValue = val;
+                        // Si estamos en budget, cambiamos a bid para ver el nuevo valor
+                        if(appState.mode === 'budget') {
+                            setMode('bid'); 
+                        } else {
+                            document.getElementById('main-input').value = formatMoney(val);
+                            handleMainInput(document.getElementById('main-input'));
+                        }
+                        window.scrollTo({top:0, behavior:'smooth'});
+                    };
+                })(currentBase);
+
+                tr.innerHTML = `
+                    <td class="p-3 font-medium">+${i}</td>
+                    <td class="p-3 font-bold">${formatMoney(currentBase)}</td>
+                    <td class="p-3 hidden sm:table-cell text-sm opacity-70">${formatMoney(currentBase * (appState.taxRate/100))}</td>
+                    <td class="p-3 font-bold">${formatMoney(total)}</td>
+                `;
+                fragment.appendChild(tr);
+            }
+            tbody.appendChild(fragment);
+
+            // Alerta Budget
+            const alert = document.getElementById('budget-alert');
+            if(appState.mode === 'budget' && totalBudgetInput > 0) {
+                alert.classList.remove('hidden');
+                document.getElementById('budget-limit-text').textContent = toCurrency(totalBudgetInput);
+            } else {
+                alert.classList.add('hidden');
+            }
+        }
+
+        // --- Otras Funciones ---
+        function updateDescription(val) {
+            appState.description = val;
+            const container = document.getElementById('desc-display-container');
+            if(val) {
+                container.classList.remove('hidden');
+                document.getElementById('display-description').textContent = val;
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        function handleIncrementInput(el) {
+            const val = cleanMoney(el.value);
+            appState.increment = val;
+            el.value = formatMoney(val);
+            if(tableTimeout) clearTimeout(tableTimeout);
+            tableTimeout = setTimeout(renderTable, 50);
+        }
+
+        function handleTaxInput(val) {
+            appState.taxRate = val ? parseFloat(val) : 0;
+            renderCalculations();
+            renderTable();
+        }
+
+        function setMode(mode) {
+            appState.mode = mode;
+            const isBid = mode === 'bid';
+            const btnBid = document.getElementById('btn-mode-bid');
+            const btnBudget = document.getElementById('btn-mode-budget');
+            const card = document.getElementById('result-card');
+            const input = document.getElementById('main-input');
+            const label = document.getElementById('main-input-label');
+            const quickBtn = document.getElementById('btn-quick-add');
+
+            // Recalcular valor mostrado
+            const currentTotal = appState.baseValue * (1 + (appState.taxRate/100));
+            // Si pasamos a budget, mostramos el total. Si pasamos a bid, mostramos la base.
+            const valToShow = isBid ? appState.baseValue : currentTotal;
+            input.value = valToShow === 0 ? '' : formatMoney(valToShow);
+
+            // Estilos
+            btnBid.className = isBid ? "flex-1 py-3 rounded-lg text-sm font-bold bg-blue-600 text-white shadow-md" : "flex-1 py-3 rounded-lg text-sm font-bold text-slate-500 hover:bg-slate-50";
+            btnBudget.className = !isBid ? "flex-1 py-3 rounded-lg text-sm font-bold bg-emerald-600 text-white shadow-md" : "flex-1 py-3 rounded-lg text-sm font-bold text-slate-500 hover:bg-slate-50";
+            
+            card.className = isBid ? "p-6 rounded-2xl shadow-lg text-white flex flex-col justify-between transition-colors duration-300 bg-blue-600 relative min-h-[250px]" : "p-6 rounded-2xl shadow-lg text-white flex flex-col justify-between transition-colors duration-300 bg-emerald-600 relative min-h-[250px]";
+            
+            label.textContent = isBid ? "Valor Puja (Martillo)" : "Presupuesto Total (Tope)";
+            
+            // Actualizar lógica del input principal
+            // Importante: al cambiar de modo, simulamos un input para actualizar el estado baseValue correctamente
+            handleMainInput(input);
+            
+            quickBtn.style.display = isBid ? 'block' : 'none';
+        }
+
+        function quickAdd() {
+            appState.baseValue += appState.increment;
+            if(appState.mode === 'budget') setMode('bid');
+            else {
+                document.getElementById('main-input').value = formatMoney(appState.baseValue);
+                renderCalculations();
+                renderTable();
+            }
+        }
+
+        function copyData() {
+            const hammer = appState.baseValue;
+            const tax = hammer * (appState.taxRate/100);
+            const total = hammer + tax;
+            const text = `*ITEM: ${appState.description || 'REMATE'}*\nMartillo: ${toCurrency(hammer)}\nComisión: +${toCurrency(tax)}\n*TOTAL: ${toCurrency(total)}*`;
+            
+            navigator.clipboard.writeText(text);
+            const icon = document.getElementById('copy-icon');
+            icon.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>';
+            setTimeout(() => { 
+                icon.innerHTML = '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>'; 
+                lucide.createIcons();
+            }, 1000);
+        }
+
+        function sendWhatsapp() {
+            const num = document.getElementById('whatsapp-input').value.replace(/\D/g, '');
+            if(!num) return alert('Ingresa un número válido');
+            const hammer = appState.baseValue;
+            const tax = hammer * (appState.taxRate/100);
+            const total = hammer + tax;
+            const text = `*ITEM: ${appState.description || 'REMATE'}*\nMartillo: ${toCurrency(hammer)}\nComisión: +${toCurrency(tax)}\n*TOTAL: ${toCurrency(total)}*`;
+            window.open(`https://wa.me/${num}?text=${encodeURIComponent(text)}`, '_blank');
+        }
+
+    </script>
+</body>
+</html>
+
+
